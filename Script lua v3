@@ -1,0 +1,515 @@
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NBKCheatMenuSquare"
+ScreenGui.Parent = (game:GetService("CoreGui"):FindFirstChild("RobloxGui") or game:GetService("CoreGui"))
+
+-- Services
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Main Frame (Thiết kế dạng ô vuông 380x380 px)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 380, 0, 380)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 10)
+
+-- Title Bar (Thanh tiêu đề vuông vắn)
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Title.Text = "NBK CHEAT MENU - DASHBOARD"
+Title.TextColor3 = Color3.fromRGB(0, 255, 200)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 13
+
+-- ScrollingFrame (Thanh cuộn trượt)
+local ScrollFrame = Instance.new("ScrollingFrame", MainFrame)
+ScrollFrame.Size = UDim2.new(1, -12, 1, -38)
+ScrollFrame.Position = UDim2.new(0, 6, 0, 34)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 5
+ScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 200)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Tự động điều chỉnh độ dài
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 10)
+
+-- Cập nhật độ dài Canvas khi thêm tính năng
+UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 10)
+end)
+
+-- Helper: Tạo nhóm danh mục (Section)
+local function CreateSection(titleText)
+    local Section = Instance.new("Frame", ScrollFrame)
+    Section.Size = UDim2.new(1, -8, 0, 0)
+    Section.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    
+    local SecCorner = Instance.new("UICorner", Section)
+    SecCorner.CornerRadius = UDim.new(0, 6)
+
+    local SecTitle = Instance.new("TextLabel", Section)
+    SecTitle.Size = UDim2.new(1, -10, 0, 22)
+    SecTitle.Position = UDim2.new(0, 8, 0, 2)
+    SecTitle.BackgroundTransparency = 1
+    SecTitle.Text = titleText
+    SecTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+    SecTitle.Font = Enum.Font.SourceSansBold
+    SecTitle.TextSize = 11
+    SecTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Container = Instance.new("Frame", Section)
+    Container.Size = UDim2.new(1, -12, 0, 0)
+    Container.Position = UDim2.new(0, 6, 0, 24)
+    Container.BackgroundTransparency = 1
+
+    local Grid = Instance.new("UIGridLayout", Container)
+    Grid.CellSize = UDim2.new(0, 165, 0, 26)
+    Grid.CellPadding = UDim2.new(0, 8, 0, 6)
+
+    Grid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Container.Size = UDim2.new(1, -12, 0, Grid.AbsoluteContentSize.Y)
+        Section.Size = UDim2.new(1, -8, 0, Grid.AbsoluteContentSize.Y + 30)
+    end)
+
+    return Container
+end
+
+-- Helper: Tạo Nút Toggle trong Section
+local function CreateToggle(parent, name, callback)
+    local btn = Instance.new("TextButton", parent)
+    btn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 10
+    btn.Text = name .. ": [OFF]"
+    
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 4)
+
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            btn.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn.Text = name .. ": [ON]"
+        else
+            btn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+            btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            btn.Text = name .. ": [OFF]"
+        end
+        pcall(callback, state)
+    end)
+    return btn
+end
+
+---------------------------------------------------------
+-- CHIA DANH MỤC THÍCH HỢP
+---------------------------------------------------------
+
+-- Group 1: Nhân vật (Player)
+local PlayerSec = CreateSection("1. BẢN THÂN (PLAYER)")
+
+CreateToggle(PlayerSec, "Speed 100", function(enabled)
+    _G.SpeedHack = enabled
+    task.spawn(function()
+        while _G.SpeedHack do
+            pcall(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.WalkSpeed = 100
+                end
+            end)
+            task.wait(0.1)
+        end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = 16
+        end
+    end)
+end)
+
+CreateToggle(PlayerSec, "God Mode", function(enabled)
+    _G.GodMode = enabled
+    task.spawn(function()
+        while _G.GodMode do
+            pcall(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.MaxHealth = math.huge
+                    LocalPlayer.Character.Humanoid.Health = math.huge
+                end
+            end)
+            task.wait(0.2)
+        end
+    end)
+end)
+
+CreateToggle(PlayerSec, "Invisible", function(enabled)
+    pcall(function()
+        if LocalPlayer.Character then
+            for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
+                if (v:IsA("BasePart") or v:IsA("Decal")) and v.Name ~= "HumanoidRootPart" then
+                    v.Transparency = enabled and 1 or 0
+                end
+            end
+        end
+    end)
+end)
+
+CreateToggle(PlayerSec, "Noclip", function(enabled)
+    _G.Noclip = enabled
+    if enabled then
+        task.spawn(function()
+            while _G.Noclip do
+                pcall(function()
+                    if LocalPlayer.Character then
+                        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                            if part:IsA("BasePart") then part.CanCollide = false end
+                        end
+                    end
+                end)
+                RunService.Stepped:Wait()
+            end
+        end)
+    end
+end)
+
+-- Group 2: ESP (Nhìn Xuyên Wall)
+local ESPSec = CreateSection("2. HIGHLIGHT & ESP")
+
+CreateToggle(ESPSec, "Player ESP", function(enabled)
+    _G.ESP = enabled
+    if enabled then
+        task.spawn(function()
+            while _G.ESP do
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("MiniESP") then
+                        local hl = Instance.new("Highlight", p.Character)
+                        hl.Name = "MiniESP"
+                        hl.FillColor = Color3.fromRGB(255, 0, 0)
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    else
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("MiniESP") then
+                p.Character.MiniESP:Destroy()
+            end
+        end
+    end
+end)
+
+CreateToggle(ESPSec, "ESP Name", function(enabled)
+    _G.ESPName = enabled
+    if enabled then
+        task.spawn(function()
+            while _G.ESPName do
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and not p.Character.Head:FindFirstChild("NameTag") then
+                        local bg = Instance.new("BillboardGui", p.Character.Head)
+                        bg.Name = "NameTag"
+                        bg.Size = UDim2.new(0, 80, 0, 20)
+                        bg.StudsOffset = Vector3.new(0, 2, 0)
+                        bg.AlwaysOnTop = true
+
+                        local txt = Instance.new("TextLabel", bg)
+                        txt.Size = UDim2.new(1, 0, 1, 0)
+                        txt.BackgroundTransparency = 1
+                        txt.Text = p.Name
+                        txt.TextColor3 = Color3.fromRGB(0, 255, 255)
+                        txt.Font = Enum.Font.SourceSansBold
+                        txt.TextSize = 11
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    else
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("Head") and p.Character.Head:FindFirstChild("NameTag") then
+                p.Character.Head.NameTag:Destroy()
+            end
+        end
+    end
+end)
+
+CreateToggle(ESPSec, "Item ESP", function(enabled)
+    _G.ItemESP = enabled
+    if enabled then
+        task.spawn(function()
+            while _G.ItemESP do
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("Tool") or v:FindFirstChildOfClass("ClickDetector") or v:FindFirstChildOfClass("ProximityPrompt") then
+                        if not v:FindFirstChild("ItemESP_HL") then
+                            local hl = Instance.new("Highlight", v)
+                            hl.Name = "ItemESP_HL"
+                            hl.FillColor = Color3.fromRGB(255, 255, 0)
+                        end
+                    end
+                end
+                task.wait(2)
+            end
+        end)
+    else
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:FindFirstChild("ItemESP_HL") then v.ItemESP_HL:Destroy() end
+        end
+    end
+end)
+
+-- Tracers (Tia ESP)
+local Lines = {}
+local function ClearLines()
+    for _, line in pairs(Lines) do line:Remove() end
+    Lines = {}
+end
+
+CreateToggle(ESPSec, "Tia ESP", function(enabled)
+    _G.Tracers = enabled
+    if not enabled then ClearLines() end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not _G.Tracers or not Drawing then ClearLines() return end
+    ClearLines()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local line = Drawing.new("Line")
+                line.Visible = true
+                line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                line.To = Vector2.new(pos.X, pos.Y)
+                line.Color = Color3.fromRGB(0, 255, 0)
+                line.Thickness = 1.2
+                table.insert(Lines, line)
+            end
+        end
+    end
+end)
+
+-- Group 3: Chiến đấu (Combat)
+local CombatSec = CreateSection("3. COMBAT & BÁ ĐẠO")
+
+CreateToggle(CombatSec, "Aimbot Head", function(enabled)
+    _G.Aimbot = enabled
+    task.spawn(function()
+        while _G.Aimbot do
+            local closestPlayer = nil
+            local shortestDistance = math.huge
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                    local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
+                        if dist < shortestDistance then
+                            shortestDistance = dist
+                            closestPlayer = player
+                        end
+                    end
+                end
+            end
+            if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestPlayer.Character.Head.Position)
+            end
+            task.wait()
+        end
+    end)
+end)
+
+CreateToggle(CombatSec, "Gom Nguoi", function(enabled)
+    _G.BringAll = enabled
+    task.spawn(function()
+        while _G.BringAll do
+            pcall(function()
+                local myChar = LocalPlayer.Character
+                if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                    local myPos = myChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, -4)
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                            p.Character.HumanoidRootPart.CFrame = myPos
+                        end
+                    end
+                end
+            end)
+            task.wait(0.1)
+        end
+    end)
+end)
+
+CreateToggle(CombatSec, "Drop Kick", function(enabled)
+    _G.DropKick = enabled
+    task.spawn(function()
+        while _G.DropKick do
+            pcall(function()
+                local myChar = LocalPlayer.Character
+                if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                    for _, p in pairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                            p.Character.HumanoidRootPart.CFrame = myChar.HumanoidRootPart.CFrame * CFrame.new(0, -1, 0.5)
+                            myChar.HumanoidRootPart.Velocity = Vector3.new(9999, 9999, 9999)
+                        end
+                    end
+                end
+            end)
+            task.wait(0.05)
+        end
+    end)
+end)
+
+CreateToggle(CombatSec, "Walkfling", function(enabled)
+    _G.WalkFling = enabled
+    task.spawn(function()
+        local function flingLoop()
+            if not _G.WalkFling then return end
+            local character = LocalPlayer.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            if not rootPart then return end
+            
+            local vel, rotVel = rootPart.Velocity, rootPart.RotVelocity
+            rootPart.Velocity = Vector3.new(30000, 30000, 30000)
+            rootPart.RotVelocity = Vector3.new(30000, 30000, 30000)
+            RunService.RenderStepped:Wait()
+            if rootPart and rootPart.Parent then
+                rootPart.Velocity = vel
+                rootPart.RotVelocity = rotVel
+            end
+        end
+
+        while _G.WalkFling do
+            pcall(flingLoop)
+            RunService.Heartbeat:Wait()
+        end
+    end)
+end)
+
+-- Group 4: Tiện ích (Misc)
+local MiscSec = CreateSection("4. TIỆN ÍCH & DỊCH CHUYỂN")
+
+-- FOV Slider
+local FOVFrame = Instance.new("Frame", MiscSec)
+FOVFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+Instance.new("UICorner", FOVFrame).CornerRadius = UDim.new(0, 4)
+
+local FOVLabel = Instance.new("TextLabel", FOVFrame)
+FOVLabel.Size = UDim2.new(1, 0, 0.4, 0)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "FOV: " .. math.floor(Camera.FieldOfView)
+FOVLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+FOVLabel.Font = Enum.Font.SourceSansBold
+FOVLabel.TextSize = 9
+
+local SliderBg = Instance.new("Frame", FOVFrame)
+SliderBg.Size = UDim2.new(0.8, 0, 0.25, 0)
+SliderBg.Position = UDim2.new(0.1, 0, 0.55, 0)
+SliderBg.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(1, 0)
+
+local SliderFill = Instance.new("Frame", SliderBg)
+SliderFill.Size = UDim2.new(math.clamp((Camera.FieldOfView - 70) / 50, 0, 1), 0, 1, 0)
+SliderFill.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(1, 0)
+
+local dragging = false
+local function UpdateFOV(input)
+    local pos = math.clamp((input.Position.X - SliderBg.AbsolutePosition.X) / SliderBg.AbsoluteSize.X, 0, 1)
+    SliderFill.Size = UDim2.new(pos, 0, 1, 0)
+    local fovVal = math.floor(70 + (pos * 50))
+    Camera.FieldOfView = fovVal
+    FOVLabel.Text = "FOV: " .. fovVal
+end
+
+SliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true; UpdateFOV(input)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then UpdateFOV(input) end
+end)
+
+-- Teleport UI
+local TextBox = Instance.new("TextBox", MiscSec)
+TextBox.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.PlaceholderText = "Ten Nguoi Choi..."
+TextBox.Font = Enum.Font.SourceSans
+TextBox.TextSize = 10
+Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 4)
+
+local TeleBtn = Instance.new("TextButton", MiscSec)
+TeleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+TeleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleBtn.Font = Enum.Font.SourceSansBold
+TeleBtn.Text = "Teleport"
+TeleBtn.TextSize = 10
+Instance.new("UICorner", TeleBtn).CornerRadius = UDim.new(0, 4)
+
+TeleBtn.MouseButton1Click:Connect(function()
+    local nameInput = string.lower(TextBox.Text)
+    if nameInput == "" then return end
+    for _, target in pairs(Players:GetPlayers()) do
+        if target ~= LocalPlayer and (string.find(string.lower(target.Name), nameInput) or string.find(string.lower(target.DisplayName), nameInput)) then
+            if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+            end
+            break
+        end
+    end
+end)
+
+---------------------------------------------------------
+-- NÚT TOGGLE & ANIMATION MỞ/TẮT MƯỢT MÀ
+---------------------------------------------------------
+local ToggleBtn = Instance.new("TextButton", ScreenGui)
+ToggleBtn.Name = "ToggleButton"
+ToggleBtn.Size = UDim2.new(0, 40, 0, 40)
+ToggleBtn.Position = UDim2.new(0.02, 0, 0.45, 0)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+ToggleBtn.Text = "NBK"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 12
+ToggleBtn.Active = true
+ToggleBtn.Draggable = true
+
+local BtnCorner = Instance.new("UICorner", ToggleBtn)
+BtnCorner.CornerRadius = UDim.new(0, 20)
+
+local openSize = UDim2.new(0, 380, 0, 380)
+local closeSize = UDim2.new(0, 0, 0, 0)
+local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local isOpen = true
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    isOpen = not isOpen
+    if isOpen then
+        MainFrame.Visible = true
+        MainFrame.Size = closeSize
+        TweenService:Create(MainFrame, tweenInfo, {Size = openSize}):Play()
+    else
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = closeSize})
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not isOpen then MainFrame.Visible = false end
+        end)
+    end
+end)
