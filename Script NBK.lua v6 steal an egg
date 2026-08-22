@@ -1,0 +1,248 @@
+-- Dịch vụ cơ bản
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local localPlayer = Players.LocalPlayer
+
+-- Tạo GUI Menu chính
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NBK_Menu_Compact"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+-- Nút Menu nổi (Thu nhỏ)
+local ToggleMenuBtn = Instance.new("TextButton")
+ToggleMenuBtn.Size = UDim2.new(0, 40, 0, 40)
+ToggleMenuBtn.Position = UDim2.new(0, 15, 0.4, 0)
+ToggleMenuBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+ToggleMenuBtn.Text = "MENU"
+ToggleMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleMenuBtn.TextSize = 10
+ToggleMenuBtn.Font = Enum.Font.SourceSansBold
+ToggleMenuBtn.Active = true
+ToggleMenuBtn.Draggable = true
+ToggleMenuBtn.Parent = ScreenGui
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = ToggleMenuBtn
+
+-- Bảng Menu chính (Đã được thu nhỏ kích thước)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 240, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -120, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+ToggleMenuBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Tiêu đề Menu
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 32)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "NBK Menu - Auto Egg"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = Title
+
+-- Trạng thái tính năng
+local autoCollectEnabled = false
+local autoTeleportHomeEnabled = false
+local flySpeed = 150
+local isFlyingHome = false
+
+-- Nút Bật/Tắt Nhặt Trứng Nhanh
+local CollectButton = Instance.new("TextButton")
+CollectButton.Size = UDim2.new(0.9, 0, 0, 35)
+CollectButton.Position = UDim2.new(0.05, 0, 0, 48)
+CollectButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+CollectButton.Text = "Nhặt trứng nhanh: TẮT"
+CollectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CollectButton.TextSize = 13
+CollectButton.Font = Enum.Font.SourceSansBold
+CollectButton.Parent = MainFrame
+
+local ColCorner = Instance.new("UICorner")
+ColCorner.CornerRadius = UDim.new(0, 6)
+ColCorner.Parent = CollectButton
+
+CollectButton.MouseButton1Click:Connect(function()
+    autoCollectEnabled = not autoCollectEnabled
+    if autoCollectEnabled then
+        CollectButton.Text = "Nhặt trứng nhanh: BẬT"
+        CollectButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    else
+        CollectButton.Text = "Nhặt trứng nhanh: TẮT"
+        CollectButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-- Nút Bật/Tắt Bay Về Nhà
+local TeleportButton = Instance.new("TextButton")
+TeleportButton.Size = UDim2.new(0.9, 0, 0, 35)
+TeleportButton.Position = UDim2.new(0.05, 0, 0, 92)
+TeleportButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+TeleportButton.Text = "Bay về nhà: TẮT"
+TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportButton.TextSize = 13
+TeleportButton.Font = Enum.Font.SourceSansBold
+TeleportButton.Parent = MainFrame
+
+local TeleCorner = Instance.new("UICorner")
+TeleCorner.CornerRadius = UDim.new(0, 6)
+TeleCorner.Parent = TeleportButton
+
+TeleportButton.MouseButton1Click:Connect(function()
+    autoTeleportHomeEnabled = not autoTeleportHomeEnabled
+    if autoTeleportHomeEnabled then
+        TeleportButton.Text = "Bay về nhà: BẬT"
+        TeleportButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    else
+        TeleportButton.Text = "Bay về nhà: TẮT"
+        TeleportButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        isFlyingHome = false -- Tắt ngay lập tức tiến trình bay nếu đang bay dở
+    end
+end)
+
+-- Hiển thị Tốc độ bay
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(0.9, 0, 0, 20)
+SpeedLabel.Position = UDim2.new(0.05, 0, 0, 140)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Tốc độ bay: 150"
+SpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedLabel.TextSize = 13
+SpeedLabel.Font = Enum.Font.SourceSans
+SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.Parent = MainFrame
+
+-- Thanh trượt tốc độ (Slider nhỏ gọn)
+local SliderBg = Instance.new("Frame")
+SliderBg.Size = UDim2.new(0.9, 0, 0, 8)
+SliderBg.Position = UDim2.new(0.05, 0, 0, 165)
+SliderBg.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+SliderBg.Parent = MainFrame
+
+local SliderFill = Instance.new("Frame")
+SliderFill.Size = UDim2.new(0.375, 0, 1, 0)
+SliderFill.BackgroundColor3 = Color3.fromRGB(52, 152, 219)
+SliderFill.Parent = SliderBg
+
+local SliderBtn = Instance.new("TextButton")
+SliderBtn.Size = UDim2.new(0, 16, 0, 16)
+SliderBtn.Position = UDim2.new(0.375, -8, 0.5, -8)
+SliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+SliderBtn.Text = ""
+SliderBtn.Parent = SliderBg
+
+local dragging = false
+
+SliderBtn.MouseButton1Down:Connect(function()
+    dragging = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local mousePos = input.Position.X
+        local sliderPos = SliderBg.AbsolutePosition.X
+        local sliderSize = SliderBg.AbsoluteSize.X
+        local percentage = math.clamp((mousePos - sliderPos) / sliderSize, 0, 1)
+        
+        SliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+        SliderBtn.Position = UDim2.new(percentage, -8, 0.5, -8)
+        
+        flySpeed = math.floor(percentage * 400)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    SpeedLabel.Text = "Tốc độ bay: " .. flySpeed
+end)
+
+-- Hàm bay về nhà (Có kiểm tra trạng thái Bật/Tắt liên tục để ngắt ngay lập tức khi người dùng tắt)
+local function flyHomeFast()
+    if isFlyingHome then return end
+    isFlyingHome = true
+
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        isFlyingHome = false
+        return
+    end
+
+    local rootPart = character.HumanoidRootPart
+    local homePosition = Vector3.new(0, 10, 0) -- THAY ĐỔI TỌA ĐỘ NHÀ CỦA BẠN TẠI ĐÂY
+
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid.PlatformStand = true end
+
+    while (rootPart.Position - homePosition).Magnitude > 5 do
+        -- Nếu người dùng bấm tắt tính năng bay giữa chừng, vòng lặp sẽ dừng ngay lập tức
+        if not autoTeleportHomeEnabled or not character or not rootPart.Parent then 
+            break 
+        end
+        
+        local currentPos = rootPart.Position
+        local direction = (homePosition - currentPos).Unit
+        local distanceThisFrame = flySpeed * RunService.RenderStepped:Wait()
+        
+        if (homePosition - currentPos).Magnitude < distanceThisFrame then
+            rootPart.CFrame = CFrame.new(homePosition)
+            break
+        else
+            rootPart.CFrame = rootPart.CFrame + (direction * distanceThisFrame)
+        end
+    end
+
+    if humanoid then humanoid.PlatformStand = false end
+    isFlyingHome = false
+end
+
+-- Vòng lặp nhặt trứng nhanh
+local lastCheck = 0
+RunService.Heartbeat:Connect(function()
+    if not autoCollectEnabled or isFlyingHome then return end
+    
+    local currentTime = tick()
+    if currentTime - lastCheck < 0.15 then return end
+    lastCheck = currentTime
+
+    local character = localPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = character.HumanoidRootPart
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "egg") then
+            if (rootPart.Position - obj.Position).Magnitude < 25 then
+                firetouchinterest(rootPart, obj, 0)
+                firetouchinterest(rootPart, obj, 1)
+                
+                if autoTeleportHomeEnabled then
+                    task.spawn(flyHomeFast)
+                    break
+                end
+            end
+        end
+    end
+end)
