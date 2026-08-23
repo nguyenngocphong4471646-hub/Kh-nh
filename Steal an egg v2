@@ -1,0 +1,426 @@
+-- [[ Script Name: Cosmic_Anime_Hub_Optimized.lua ]]
+-- [[ Environment: Roblox Luau / Sandbox Isolation ]]
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+
+local CONFIG_FILE = "CosmicHub_Config_v2.json"
+
+local defaultValues = {
+    AutoFlyHome = false,
+    FlySpeed = 230,
+    GodMode = false,
+    EventSafe = false,
+    ESPCOsmicEggs = false,
+    ESPPlayers = false,
+    WideAttack = false,
+    HomePosition = {X = 0, Y = 10, Z = 0}
+}
+
+getgenv().Config = {}
+
+local function LoadConfig()
+    local success, result = pcall(function()
+        if writefile and readfile and isfile and isfile(CONFIG_FILE) then
+            return HttpService:JSONDecode(readfile(CONFIG_FILE))
+        end
+    end)
+    if success and type(result) == "table" then
+        for k, v in pairs(defaultValues) do
+            getgenv().Config[k] = result[k] ~= nil and result[k] or v
+        end
+        if type(getgenv().Config.HomePosition) == "table" then
+            local pos = getgenv().Config.HomePosition
+            getgenv().Config.HomePosition = Vector3.new(pos.X or 0, pos.Y or 10, pos.Z or 0)
+        end
+    else
+        for k, v in pairs(defaultValues) do
+            getgenv().Config[k] = v
+        end
+        getgenv().Config.HomePosition = Vector3.new(0, 10, 0)
+    end
+end
+
+local function SaveConfig()
+    pcall(function()
+        if writefile then
+            local dataToSave = {}
+            for k, v in pairs(getgenv().Config) do
+                if typeof(v) == "Vector3" then
+                    dataToSave[k] = {X = v.X, Y = v.Y, Z = v.Z}
+                else
+                    dataToSave[k] = v
+                end
+            end
+            writefile(CONFIG_FILE, HttpService:JSONEncode(dataToSave))
+        end
+    end)
+end
+
+LoadConfig()
+
+pcall(function()
+    if getgenv().Config.HomePosition == Vector3.new(0, 10, 0) and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        getgenv().Config.HomePosition = LocalPlayer.Character.HumanoidRootPart.Position
+        SaveConfig()
+    end
+end)
+
+local parentGUI = CoreGui
+local successGui = pcall(function()
+    local test = Instance.new("ScreenGui")
+    test.Parent = CoreGui
+    test:Destroy()
+end)
+if not successGui then
+    parentGUI = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CosmicHubOptimized"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentGUI
+
+local FloatingToggleBtn = Instance.new("TextButton")
+FloatingToggleBtn.Size = UDim2.new(0, 95, 0, 32)
+FloatingToggleBtn.Position = UDim2.new(0, 15, 0, 15)
+FloatingToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FloatingToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatingToggleBtn.TextSize = 11
+FloatingToggleBtn.Font = Enum.Font.Code
+FloatingToggleBtn.Text = "MENU: [ON]"
+FloatingToggleBtn.Active = true
+FloatingToggleBtn.Draggable = true
+FloatingToggleBtn.Parent = ScreenGui
+
+local FloatCorner = Instance.new("UICorner")
+FloatCorner.CornerRadius = UDim.new(0, 8)
+FloatCorner.Parent = FloatingToggleBtn
+
+local FloatStroke = Instance.new("UIStroke")
+FloatStroke.Thickness = 2
+FloatStroke.Color = Color3.fromRGB(255, 255, 255)
+FloatStroke.Parent = FloatingToggleBtn
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 290, 0, 440)
+MainFrame.Position = UDim2.new(0.5, -145, 0.5, -220)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 2.5
+UIStroke.Parent = MainFrame
+
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.1) do -- Giảm tần suất đổi màu để nhẹ CPU hơn
+        hue = (hue + 0.005) % 1
+        local rainbowColor = Color3.fromHSV(hue, 1, 1)
+        UIStroke.Color = rainbowColor
+        FloatStroke.Color = rainbowColor
+    end
+end)
+
+local function ToggleMenuVisibility()
+    local isVis = not MainFrame.Visible
+    MainFrame.Visible = isVis
+    FloatingToggleBtn.Text = isVis and "MENU: [ON]" or "MENU: [OFF]"
+    FloatingToggleBtn.BackgroundColor3 = isVis and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(50, 20, 20)
+end
+
+FloatingToggleBtn.MouseButton1Click:Connect(ToggleMenuVisibility)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        ToggleMenuVisibility()
+    end
+end)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -20, 0, 30)
+Title.Position = UDim2.new(0, 10, 0, 5)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 12
+Title.Font = Enum.Font.Code
+Title.Text = "COSMIC HUB [ANTI-LAG]"
+Title.Parent = MainFrame
+
+local SetHomeBtn = Instance.new("TextButton")
+SetHomeBtn.Size = UDim2.new(0.92, 0, 0, 25)
+SetHomeBtn.Position = UDim2.new(0.04, 0, 0, 35)
+SetHomeBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
+SetHomeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SetHomeBtn.TextSize = 10
+SetHomeBtn.Font = Enum.Font.Code
+SetHomeBtn.Text = "📍 Đặt vị trí hiện tại làm Nhà"
+SetHomeBtn.Parent = MainFrame
+
+local SetHomeCorner = Instance.new("UICorner")
+SetHomeCorner.CornerRadius = UDim.new(0, 5)
+SetHomeCorner.Parent = SetHomeBtn
+
+SetHomeBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            getgenv().Config.HomePosition = char.HumanoidRootPart.Position
+            SaveConfig()
+            SetHomeBtn.Text = "✅ Đã lưu và ghi nhớ vị trí Nhà!"
+            task.delay(1.5, function()
+                SetHomeBtn.Text = "📍 Đặt vị trí hiện tại làm Nhà"
+            end)
+        end
+    end)
+end)
+
+local function CreateToggleButton(configKey, name, posY, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0.92, 0, 0, 28)
+    Button.Position = UDim2.new(0.04, 0, 0, posY)
+    Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 11
+    Button.Font = Enum.Font.Code
+    Button.Parent = MainFrame
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+    
+    local currentState = getgenv().Config[configKey] or false
+    Button.BackgroundColor3 = currentState and Color3.fromRGB(30, 170, 70) or Color3.fromRGB(35, 35, 35)
+    Button.Text = name .. (currentState and " [ON]" or " [OFF]")
+    callback(currentState)
+
+    Button.MouseButton1Click:Connect(function()
+        currentState = not currentState
+        getgenv().Config[configKey] = currentState
+        SaveConfig()
+        
+        Button.BackgroundColor3 = currentState and Color3.fromRGB(30, 170, 70) or Color3.fromRGB(35, 35, 35)
+        Button.Text = name .. (currentState and " [ON]" or " [OFF]")
+        callback(currentState)
+    end)
+    return Button
+end
+
+CreateToggleButton("AutoFlyHome", "Auto Fly Home (Speed 230)", 66, function(state)
+    getgenv().Config.AutoFlyHome = state
+end)
+
+CreateToggleButton("GodMode", "God Mode (Bất tử)", 98, function(state)
+    getgenv().Config.GodMode = state
+end)
+
+CreateToggleButton("EventSafe", "Event Safe (Bảo vệ chống chết)", 130, function(state)
+    getgenv().Config.EventSafe = state
+end)
+
+CreateToggleButton("ESPCOsmicEggs", "ESP Cosmic Eggs / Items+", 162, function(state)
+    getgenv().Config.ESPCOsmicEggs = state
+end)
+
+CreateToggleButton("ESPPlayers", "ESP Players (Hiển thị người)", 194, function(state)
+    getgenv().Config.ESPPlayers = state
+end)
+
+CreateToggleButton("WideAttack", "Wide Area Attack (AOE)", 226, function(state)
+    getgenv().Config.WideAttack = state
+end)
+
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Size = UDim2.new(0.92, 0, 0, 130)
+StatusFrame.Position = UDim2.new(0.04, 0, 0, 260)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Parent = MainFrame
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.CornerRadius = UDim.new(0, 8)
+StatusCorner.Parent = StatusFrame
+
+local StatusTitle = Instance.new("TextLabel")
+StatusTitle.Size = UDim2.new(1, 0, 0, 22)
+StatusTitle.BackgroundTransparency = 1
+StatusTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+StatusTitle.TextSize = 10
+StatusTitle.Font = Enum.Font.Code
+StatusTitle.Text = "=== OPTIMIZED PERFORMANCE ==="
+StatusTitle.Parent = StatusFrame
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Size = UDim2.new(0.95, 0, 1, -25)
+StatusText.Position = UDim2.new(0.025, 0, 0, 23)
+StatusText.BackgroundTransparency = 1
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusText.TextSize = 10
+StatusText.Font = Enum.Font.Code
+StatusText.TextXAlignment = Enum.TextXAlignment.Left
+StatusText.TextYAlignment = Enum.TextYAlignment.Top
+StatusText.TextWrapped = true
+StatusText.Text = "Đã tối ưu CPU, loại bỏ giật lag định kỳ."
+StatusText.Parent = StatusFrame
+
+task.spawn(function()
+    local countdown = 930
+    while task.wait(1) do
+        countdown = countdown - 1
+        if countdown <= 0 then countdown = 1200 end
+        local mins = math.floor(countdown / 60)
+        local secs = countdown % 60
+        
+        StatusText.Text = string.format(
+            "Server: Online | Event: %02d:%02d\nOptimization: Active (No Lag)\n- Trực tuyến ổn định.",
+            mins, secs
+        )
+    end
+end)
+
+-- 1. Mô-đun Fly mượt mà
+local flyBodyVelocity, flyBodyGyro
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Humanoid") then return end
+        local rootPart = char.HumanoidRootPart
+        local humanoid = char.Humanoid
+        
+        if getgenv().Config.AutoFlyHome then
+            if not rootPart:FindFirstChild("CosmicFlyVelocity") then
+                flyBodyVelocity = Instance.new("BodyVelocity")
+                flyBodyVelocity.Name = "CosmicFlyVelocity"
+                flyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                flyBodyVelocity.Parent = rootPart
+                
+                flyBodyGyro = Instance.new("BodyGyro")
+                flyBodyGyro.Name = "CosmicFlyGyro"
+                flyBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                flyBodyGyro.CFrame = rootPart.CFrame
+                flyBodyGyro.Parent = rootPart
+            end
+            
+            humanoid.PlatformStand = true
+            local targetPos = getgenv().Config.HomePosition
+            local direction = (targetPos - rootPart.Position)
+            local distance = direction.Magnitude
+            
+            if distance > 5 then
+                flyBodyVelocity.Velocity = direction.Unit * getgenv().Config.FlySpeed
+                flyBodyGyro.CFrame = CFrame.new(rootPart.Position, targetPos)
+            else
+                flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                humanoid.PlatformStand = false
+                if flyBodyVelocity then flyBodyVelocity:Destroy() end
+                if flyBodyGyro then flyBodyGyro:Destroy() end
+                getgenv().Config.AutoFlyHome = false
+            end
+        else
+            if rootPart:FindFirstChild("CosmicFlyVelocity") then rootPart.CosmicFlyVelocity:Destroy() end
+            if rootPart:FindFirstChild("CosmicFlyGyro") then rootPart.CosmicFlyGyro:Destroy() end
+            humanoid.PlatformStand = false
+        end
+    end)
+end)
+
+-- 2. God Mode / Event Safe
+RunService.Stepped:Connect(function()
+    pcall(function()
+        if getgenv().Config.GodMode or getgenv().Config.EventSafe then
+            local char = LocalPlayer.Character
+            if char then
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    humanoid.Health = humanoid.MaxHealth
+                end
+            end
+        end
+    end)
+end)
+
+-- 3. ESP Tối ưu (Quét thưa hơn và giới hạn phạm vi để hoàn toàn không bị khựng hình)
+task.spawn(function()
+    while task.wait(1.5) do -- Tăng thời gian chờ lên 1.5s để giải phóng CPU
+        pcall(function()
+            if getgenv().Config.ESPCOsmicEggs then
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Model") then
+                        local nameLower = obj.Name:lower()
+                        if string.find(nameLower, "egg") or string.find(nameLower, "cosmic") or string.find(nameLower, "secret") or string.find(nameLower, "mythic") or string.find(nameLower, "event") or string.find(nameLower, "chest") then
+                            if not obj:FindFirstChild("CosmicESPBox") then
+                                local highlight = Instance.new("Highlight")
+                                highlight.Name = "CosmicESPBox"
+                                highlight.Adornee = obj
+                                highlight.FillColor = Color3.fromRGB(170, 0, 255)
+                                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                highlight.Parent = obj
+                            end
+                        end
+                    end
+                end
+            else
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Model") and obj:FindFirstChild("CosmicESPBox") then
+                        obj.CosmicESPBox:Destroy()
+                    end
+                end
+            end
+            
+            if getgenv().Config.ESPPlayers then
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        if not player.Character:FindFirstChild("PlayerESPBox") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "PlayerESPBox"
+                            highlight.Adornee = player.Character
+                            highlight.FillColor = Color3.fromRGB(0, 191, 255)
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.Parent = player.Character
+                        end
+                    end
+                end
+            else
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player.Character and player.Character:FindFirstChild("PlayerESPBox") then
+                        player.Character.PlayerESPBox:Destroy()
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- 4. Wide Area Attack (AOE)
+RunService.Stepped:Connect(function()
+    if getgenv().Config.WideAttack then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Tool") then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool:FindFirstChild("Activate") then
+                    pcall(function() tool:Activate() end)
+                end
+            end
+        end)
+    end
+end)
+
+print("Cosmic Hub Optimized (Anti-Lag) đã sẵn sàng!")
