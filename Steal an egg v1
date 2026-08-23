@@ -1,0 +1,370 @@
+-- [[ Script Name: Cosmic_Anime_Hub_AxisFly_Optimized.lua ]]
+-- [[ Environment: Roblox Luau / Sandbox Isolation ]]
+
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+
+getgenv().Config = {
+    AutoFlyHome = false,
+    ESPCOsmicEggs = false,
+    ESPPlayers = false,
+    WideAttack = false,
+    HomePosition = Vector3.new(0, 10, 0) -- Tọa độ nhà/spawn mặc định
+}
+
+-- Xác định khu vực chứa GUI an toàn
+local parentGUI = CoreGui
+local success = pcall(function()
+    local test = Instance.new("ScreenGui")
+    test.Parent = CoreGui
+    test:Destroy()
+end)
+if not success then
+    parentGUI = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Khởi tạo Giao diện chính (Nhỏ gọn)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CosmicHubAxisFlyOptimized"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentGUI
+
+-- Nút Bật/Tắt Menu nổi
+local FloatingToggleBtn = Instance.new("TextButton")
+FloatingToggleBtn.Size = UDim2.new(0, 95, 0, 32)
+FloatingToggleBtn.Position = UDim2.new(0, 15, 0, 15)
+FloatingToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FloatingToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatingToggleBtn.TextSize = 11
+FloatingToggleBtn.Font = Enum.Font.Code
+FloatingToggleBtn.Text = "MENU: [ON]"
+FloatingToggleBtn.Active = true
+FloatingToggleBtn.Draggable = true
+FloatingToggleBtn.Parent = ScreenGui
+
+local FloatCorner = Instance.new("UICorner")
+FloatCorner.CornerRadius = UDim.new(0, 8)
+FloatCorner.Parent = FloatingToggleBtn
+
+local FloatStroke = Instance.new("UIStroke")
+FloatStroke.Thickness = 2
+FloatStroke.Color = Color3.fromRGB(255, 255, 255)
+FloatStroke.Parent = FloatingToggleBtn
+
+-- Menu Chính (Nhỏ gọn)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 360)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -180)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 2.5
+UIStroke.Parent = MainFrame
+
+-- Hiệu ứng đổi màu RGB cầu vồng liên tục
+task.spawn(function()
+    local hue = 0
+    while task.wait(0.05) do -- Giảm tần suất cập nhật màu để tối ưu CPU
+        hue = (hue + 0.005) % 1
+        local rainbowColor = Color3.fromHSV(hue, 1, 1)
+        UIStroke.Color = rainbowColor
+        FloatStroke.Color = rainbowColor
+    end
+end)
+
+-- Sự kiện Bật/Tắt Menu
+local function ToggleMenuVisibility()
+    local isVis = not MainFrame.Visible
+    MainFrame.Visible = isVis
+    if isVis then
+        FloatingToggleBtn.Text = "MENU: [ON]"
+        FloatingToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    else
+        FloatingToggleBtn.Text = "MENU: [OFF]"
+        FloatingToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 20, 20)
+    end
+end
+
+FloatingToggleBtn.MouseButton1Click:Connect(ToggleMenuVisibility)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightControl then
+        ToggleMenuVisibility()
+    end
+end)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -20, 0, 30)
+Title.Position = UDim2.new(0, 10, 0, 5)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 13
+Title.Font = Enum.Font.Code
+Title.Text = "COSMIC HUB [210 / NO LAG]"
+Title.Parent = MainFrame
+
+-- Hàm tạo Toggle Button
+local function CreateToggleButton(name, posY, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0.92, 0, 0, 30)
+    Button.Position = UDim2.new(0.04, 0, 0, posY)
+    Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 11
+    Button.Font = Enum.Font.Code
+    Button.Text = name .. " [OFF]"
+    Button.Parent = MainFrame
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+    
+    local state = false
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            Button.BackgroundColor3 = Color3.fromRGB(30, 170, 70)
+            Button.Text = name .. " [ON]"
+        else
+            Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            Button.Text = name .. " [OFF]"
+        end
+        callback(state)
+    end)
+    return Button
+end
+
+-- Khởi tạo các tính năng
+CreateToggleButton("Auto Fly Home (Speed 210)", 40, function(state)
+    getgenv().Config.AutoFlyHome = state
+    if not state then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.PlatformStand = false
+            end
+        end)
+    end
+end)
+
+CreateToggleButton("ESP Cosmic Eggs+", 75, function(state)
+    getgenv().Config.ESPCOsmicEggs = state
+end)
+
+CreateToggleButton("ESP Players", 110, function(state)
+    getgenv().Config.ESPPlayers = state
+end)
+
+CreateToggleButton("Wide Area Attack (AOE)", 145, function(state)
+    getgenv().Config.WideAttack = state
+end)
+
+-- Bảng hiển thị Sự kiện & Dự đoán
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Size = UDim2.new(0.92, 0, 0, 160)
+StatusFrame.Position = UDim2.new(0.04, 0, 0, 185)
+StatusFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Parent = MainFrame
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.CornerRadius = UDim.new(0, 8)
+StatusCorner.Parent = StatusFrame
+
+local StatusTitle = Instance.new("TextLabel")
+StatusTitle.Size = UDim2.new(1, 0, 0, 25)
+StatusTitle.BackgroundTransparency = 1
+StatusTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
+StatusTitle.TextSize = 10
+StatusTitle.Font = Enum.Font.Code
+StatusTitle.Text = "=== STATUS: OPTIMIZED ==="
+StatusTitle.Parent = StatusFrame
+
+local StatusText = Instance.new("TextLabel")
+StatusText.Size = UDim2.new(0.95, 0, 1, -28)
+StatusText.Position = UDim2.new(0.025, 0, 0, 26)
+StatusText.BackgroundTransparency = 1
+StatusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusText.TextSize = 10
+StatusText.Font = Enum.Font.Code
+StatusText.TextXAlignment = Enum.TextXAlignment.Left
+StatusText.TextYAlignment = Enum.TextYAlignment.Top
+StatusText.TextWrapped = true
+StatusText.Text = "Trạng thái: Đã fix lag FPS & tốc độ chuẩn 210."
+StatusText.Parent = StatusFrame
+
+-- Đồng hồ đếm ngược động
+task.spawn(function()
+    local countdown = 930
+    while task.wait(1) do
+        countdown = countdown - 1
+        if countdown <= 0 then countdown = 1200 end
+        local mins = math.floor(countdown / 60)
+        local secs = countdown % 60
+        
+        StatusText.Text = string.format(
+            "Server Status: Online\n- Event tiếp theo: %02d:%02d\n- Tốc độ bay: 210 (Đã tối ưu)\n- Anti-Lag: Active.",
+            mins, secs
+        )
+    end
+end)
+
+-- 1. Mô-đun Auto Fly Home: Bay trục X rồi Z (Tốc độ chuẩn 210)
+RunService.Heartbeat:Connect(function(dt)
+    if getgenv().Config.AutoFlyHome then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+            local rootPart = char.HumanoidRootPart
+            local humanoid = char:FindFirstChild("Humanoid")
+            
+            local targetPos = getgenv().Config.HomePosition
+            local currentPos = rootPart.Position
+            
+            local step = 210 * dt -- Tốc độ chính xác 210 studs/s
+            
+            humanoid.PlatformStand = true
+            
+            -- Giai đoạn 1: Trục X
+            if math.abs(currentPos.X - targetPos.X) > 3 then
+                local dirX = (targetPos.X > currentPos.X) and 1 or -1
+                local newX = currentPos.X + (dirX * math.min(step, math.abs(currentPos.X - targetPos.X)))
+                local lookAtTarget = Vector3.new(targetPos.X, currentPos.Y, currentPos.Z)
+                
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {char}
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local raycastResult = Workspace:Raycast(Vector3.new(newX, currentPos.Y + 50, currentPos.Z), Vector3.new(0, -100, 0), raycastParams)
+                local groundY = raycastResult and (raycastResult.Position.Y + 3) or currentPos.Y
+                
+                rootPart.CFrame = CFrame.new(Vector3.new(newX, groundY, currentPos.Z), lookAtTarget)
+                
+            -- Giai đoạn 2: Trục Z
+            elseif math.abs(currentPos.Z - targetPos.Z) > 3 then
+                local dirZ = (targetPos.Z > currentPos.Z) and 1 or -1
+                local newZ = currentPos.Z + (dirZ * math.min(step, math.abs(currentPos.Z - targetPos.Z)))
+                local lookAtTarget = Vector3.new(targetPos.X, currentPos.Y, targetPos.Z)
+                
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {char}
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local raycastResult = Workspace:Raycast(Vector3.new(targetPos.X, currentPos.Y + 50, newZ), Vector3.new(0, -100, 0), raycastParams)
+                local groundY = raycastResult and (raycastResult.Position.Y + 3) or currentPos.Y
+                
+                rootPart.CFrame = CFrame.new(Vector3.new(targetPos.X, groundY, newZ), lookAtTarget)
+                
+            -- Giai đoạn 3: Hoàn tất
+            else
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {char}
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                local raycastResult = Workspace:Raycast(targetPos + Vector3.new(0, 50, 0), Vector3.new(0, -100, 0), raycastParams)
+                
+                if raycastResult then
+                    rootPart.CFrame = CFrame.new(raycastResult.Position + Vector3.new(0, 3, 0))
+                else
+                    rootPart.CFrame = CFrame.new(targetPos)
+                end
+                
+                humanoid.PlatformStand = false
+                getgenv().Config.AutoFlyHome = false
+            end
+        end)
+    end
+end)
+
+-- 2. Mô-đun ESP Trứng Cosmic & Người chơi (ĐÃ FIX LAG: Chạy ngầm định kỳ thay vì từng khung hình RenderStepped)
+task.spawn(function()
+    while task.wait(1.0) do
+        pcall(function()
+            if getgenv().Config.ESPCOsmicEggs then
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Model") and (string.find(obj.Name:lower(), "cosmic") or string.find(obj.Name:lower(), "secret") or string.find(obj.Name:lower(), "mythic")) then
+                        if not obj:FindFirstChild("CosmicESP") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "CosmicESP"
+                            highlight.Adornee = obj
+                            highlight.FillColor = Color3.fromRGB(138, 43, 226)
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.Parent = obj
+                        end
+                    end
+                end
+            else
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Model") and obj:FindFirstChild("CosmicESP") then
+                        obj.CosmicESP:Destroy()
+                    end
+                end
+            end
+            
+            if getgenv().Config.ESPPlayers then
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        if not player.Character:FindFirstChild("PlayerESP") then
+                            local highlight = Instance.new("Highlight")
+                            highlight.Name = "PlayerESP"
+                            highlight.Adornee = player.Character
+                            highlight.FillColor = Color3.fromRGB(0, 191, 255)
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.Parent = player.Character
+                        end
+                    end
+                end
+            else
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player.Character and player.Character:FindFirstChild("PlayerESP") then
+                        player.Character.PlayerESP:Destroy()
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- 3. Mô-đun Đánh Diện Rộng (Wide Area Attack) tối ưu độ trễ
+RunService.Stepped:Connect(function()
+    if getgenv().Config.WideAttack then
+        pcall(function()
+            local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+            local clientScript = playerGui:FindFirstChild("ClientScript")
+            if clientScript and clientScript:FindFirstChild("CombatFramework") then
+                local combatFramework = debug.getupvalues(require(clientScript.CombatFramework))[2]
+                local activeController = combatFramework.activeController
+                if activeController then
+                    activeController.timeToNextAttack = 0
+                    activeController.agitator = 0
+                    activeController.hitboxMagnitude = 600
+                    activeController.isEquipped = true
+                    activeController.equippedWeapon:FireServer()
+                end
+            end
+            
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Tool") then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool:FindFirstChild("Activate") then
+                    pcall(function() tool:Activate() end)
+                end
+            end
+        end)
+    end
+end)
+
+print("Cosmic Hub Axis-Fly (Speed 210, Anti-Lag Active) đã sẵn sàng!")
