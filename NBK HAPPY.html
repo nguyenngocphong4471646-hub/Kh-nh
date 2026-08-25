@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌷 Tròn 1 năm yêu</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(180deg, #fce4ec 0%, #f8f0f0 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
+      padding: 16px;
+    }
+
+    .card {
+      background-color: #ffffffdd;
+      backdrop-filter: blur(4px);
+      border-radius: 48px 48px 32px 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      padding: 30px 30px 40px;
+      max-width: 700px;
+      width: 100%;
+      transition: all 0.3s;
+      border: 1px solid #ffdce0;
+    }
+
+    /* -- Canvas -- */
+    #gardenCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 600 / 400;
+      background: radial-gradient(circle at 20% 30%, #f7f0e6, #e8dccc);
+      border-radius: 40px 40px 20px 20px;
+      box-shadow: inset 0 0 0 1px #ffe5e9, 0 8px 24px rgba(90, 60, 40, 0.12);
+      margin-bottom: 24px;
+      cursor: default;
+    }
+
+    /* -- Đếm ngược bên dưới canvas (góc trái gốc cây) -- */
+    .countdown-wrapper {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: -10px;
+      margin-bottom: 20px;
+      padding-left: 10px;
+    }
+
+    .countdown-box {
+      background: rgba(255, 240, 235, 0.7);
+      backdrop-filter: blur(4px);
+      border-radius: 60px;
+      padding: 10px 22px 10px 28px;
+      box-shadow: 0 4px 16px rgba(180, 100, 80, 0.15);
+      border: 1px solid #ffd9d0;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+      color: #4a2e28;
+      font-size: 1.1rem;
+    }
+
+    .countdown-box .icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .countdown-box .time {
+      background: #fff6f0;
+      padding: 4px 18px;
+      border-radius: 40px;
+      font-weight: 700;
+      font-size: 1.4rem;
+      letter-spacing: 1px;
+      color: #b45a4a;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.02);
+    }
+
+    /* -- Typing message -- */
+    .message-box {
+      background: #fffbfa;
+      border-radius: 28px;
+      padding: 24px 28px;
+      border: 1px solid #ffd9d0;
+      box-shadow: 0 8px 20px rgba(180, 80, 60, 0.06);
+      min-height: 110px;
+      display: flex;
+      align-items: center;
+    }
+
+    .typing-area {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #2f1f1a;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-weight: 400;
+    }
+
+    .typing-area .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.2em;
+      background-color: #b45a4a;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.9s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .love-note {
+      margin-top: 16px;
+      text-align: right;
+      font-size: 0.95rem;
+      color: #b27a6a;
+      letter-spacing: 0.5px;
+    }
+
+    /* Responsive */
+    @media (max-width: 500px) {
+      .card { padding: 16px; }
+      .countdown-box { font-size: 0.9rem; padding: 6px 16px 6px 20px; flex-wrap: wrap; }
+      .countdown-box .time { font-size: 1.2rem; padding: 2px 14px; }
+      .typing-area { font-size: 0.95rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Canvas vẽ animation -->
+  <canvas id="gardenCanvas" width="600" height="400"></canvas>
+
+  <!-- Đếm ngược (góc trái dưới cây) -->
+  <div class="countdown-wrapper">
+    <div class="countdown-box">
+      <span class="icon">🌱</span>
+      <span>Còn&nbsp;</span>
+      <span class="time" id="countdownDisplay">20</span>
+      <span>&nbsp;ngày nữa là tròn 1 năm ❤️</span>
+    </div>
+  </div>
+
+  <!-- Typing message -->
+  <div class="message-box">
+    <div class="typing-area" id="typingMessage">
+      <span id="textDisplay"></span><span class="cursor" id="cursorBlink"></span>
+    </div>
+  </div>
+  <div class="love-note">✨ bxaa của anh ✨</div>
+</div>
+
+<script>
+  (function() {
+    // ---------- Cấu hình ----------
+    // Ngày kỷ niệm: đặt mốc 1 năm (bạn có thể chỉnh)
+    // Ví dụ: nếu kỷ niệm là 2025-05-20 thì targetDate = new Date(2025, 4, 20)
+    // Hiện tại mình để target là 20 ngày sau ngày hôm nay (để demo đếm ngược)
+    const today = new Date();
+    // Đặt ngày kỷ niệm (1 năm) - bạn hãy sửa đúng ngày nhé!
+    // VD: anniversary = new Date(2025, 4, 20)  // 20/5/2025
+    // Mình demo: +20 ngày kể từ hôm nay
+    const anniversary = new Date(today);
+    anniversary.setDate(today.getDate() + 20);  // tạm thời +20 ngày để thấy đếm ngược
+
+    // Nội dung tin nhắn typing
+    const fullMessage = `Vậy là tình yêu của chúng mình cũng sắp tròn 1 năm rồi đó ❤️ Cảm ơn bxaa vì đã đến bên anh, cùng anh trải qua biết bao vui buồn và tạo nên thật nhiều kỷ niệm đẹp. Mong rằng thời gian tới, chúng mình vẫn sẽ nắm tay nhau thật chặt, yêu thương nhau nhiều hơn và cùng nhau đi thật lâu nhé. Yêu bxaa rất nhiều, người con gái anh thương! 💗🥰`;
+
+    // ---------- DOM ----------
+    const canvas = document.getElementById('gardenCanvas');
+    const ctx = canvas.getContext('2d');
+    const countdownEl = document.getElementById('countdownDisplay');
+    const textDisplay = document.getElementById('textDisplay');
+    const cursorBlink = document.getElementById('cursorBlink');
+
+    // Kích thước canvas (logic 600x400)
+    const W = 600, H = 400;
+
+    // ---------- Biến animation cây ----------
+    let progress = 0;           // 0 → 1 (quá trình nảy mầm → cây trưởng thành)
+    let phase = 'dropping';     // 'dropping' | 'growing' | 'done'
+    let seedY = 50;             // vị trí hạt rơi
+    let seedX = 200;           // vị trí hạt (cố định gần giữa trái)
+    const groundY = 320;        // mặt đất
+    let growProgress = 0;       // 0 → 1 cho sự phát triển của cây
+
+    // ---------- Cập nhật đếm ngược ----------
+    function updateCountdown() {
+      const now = new Date();
+      const diff = anniversary - now;
+      let daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      if (daysLeft < 0) daysLeft = 0;
+      countdownEl.textContent = daysLeft;
+    }
+
+    // ---------- Vẽ cảnh ----------
+    function drawScene() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Nền đất
+      const grad = ctx.createLinearGradient(0, groundY, 0, H);
+      grad.addColorStop(0, '#d9c6b0');
+      grad.addColorStop(0.3, '#b89a82');
+      grad.addColorStop(1, '#8b6f5c');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, groundY, W, H - groundY);
+
+      // Cỏ nhỏ
+      ctx.fillStyle = '#7d9b6e';
+      for (let i = 0; i < 40; i++) {
+        const x = 20 + i * 16 + Math.sin(i * 2) * 5;
+        const y = groundY + 4 + Math.sin(i * 1.5) * 3;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 2, y - 12 - Math.sin(i) * 4);
+        ctx.lineTo(x + 2, y - 10 - Math.cos(i) * 4);
+        ctx.fill();
+      }
+
+      // ----- Vẽ cây dựa trên growProgress (0 → 1) -----
+      const treeBaseX = 200;
+      const treeBaseY = groundY;
+
+      if (phase === 'dropping') {
+        // Vẽ hạt giống đang rơi
+        ctx.beginPath();
+        ctx.arc(seedX, seedY, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = '#6b4f3a';
+        ctx.shadowColor = '#3d2b1f';
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        // highlight
+        ctx.beginPath();
+        ctx.arc(seedX - 3, seedY - 3, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#9b7a5a';
+        ctx.fill();
+      } else {
+        // Vẽ cây với tỉ lệ growProgress
+        const scale = Math.min(growProgress, 1);
+
+        // Thân cây
+        const trunkHeight = 70 * scale;
+        const trunkWidth = 18 * scale + 4;
+        ctx.fillStyle = '#6a4e3a';
+        ctx.shadowColor = '#3d2b1f';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.rect(treeBaseX - trunkWidth/2, treeBaseY - trunkHeight, trunkWidth, trunkHeight);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Cành và tán lá (tỉ lệ theo scale)
+        const leafColor1 = '#3f7840';
+        const leafColor2 = '#5d9b5e';
+        const leafColor3 = '#7fb87a';
+
+        // Cành chính
+        function drawBranch(angle, length, thickness, yOffset, color) {
+          const startX = treeBaseX;
+          const startY = treeBaseY - trunkHeight * 0.3 + yOffset;
+          const endX = startX + Math.cos(angle) * length * scale;
+          const endY = startY + Math.sin(angle) * length * scale * 0.8;
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.lineWidth = thickness * scale + 2;
+          ctx.strokeStyle = '#5a3f2b';
+          ctx.stroke();
+
+          // Vẽ lá trên cành
+          for (let i = 0; i < 4; i++) {
+            const t = 0.2 + i * 0.2;
+            const lx = startX + (endX - startX) * t;
+            const ly = startY + (endY - startY) * t;
+            ctx.beginPath();
+            const leafSize = (8 + i * 3) * scale;
+            ctx.ellipse(lx + 6 * Math.cos(angle + 0.5) * scale, 
+                        ly - 4 * Math.sin(angle + 0.5) * scale, 
+                        leafSize, leafSize * 0.6, angle, 0, 2 * Math.PI);
+            ctx.fillStyle = i % 2 === 0 ? leafColor1 : leafColor2;
+            ctx.fill();
+          }
+        }
+
+        // Vẽ nhiều cành
+        drawBranch(-0.9, 60, 6, -8, leafColor1);
+        drawBranch(0.7, 55, 6, -10, leafColor2);
+        drawBranch(-1.2, 45, 4, -15, leafColor1);
+        drawBranch(1.0, 50, 4, -18, leafColor3);
+        drawBranch(-0.3, 40, 5, -25, leafColor2);
+        drawBranch(0.2, 38, 5, -28, leafColor3);
+
+        // Tán lá trên ngọn (một đám lá)
+        const topX = treeBaseX;
+        const topY = treeBaseY - trunkHeight - 6;
+        for (let i = 0; i < 12; i++) {
+          const angle2 = i * 0.7 + 0.3;
+          const rad = (10 + i * 2) * scale;
+          ctx.beginPath();
+          ctx.ellipse(
+            topX + Math.cos(angle2) * rad * 0.9,
+            topY + Math.sin(angle2) * rad * 0.5 - 4,
+            rad * 0.7, rad * 0.5, angle2, 0, 2 * Math.PI
+          );
+          ctx.fillStyle = i % 3 === 0 ? leafColor1 : (i % 2 === 0 ? leafColor2 : leafColor3);
+          ctx.fill();
+        }
+
+        // Hoa nở (tùy theo scale, hoa xuất hiện khi cây đã lớn)
+        if (scale > 0.5) {
+          const flowerScale = (scale - 0.5) * 2; // 0 → 1 khi scale từ 0.5 → 1
+          const flowerPositions = [
+            [treeBaseX - 20, treeBaseY - trunkHeight * 0.5 - 10],
+            [treeBaseX + 15, treeBaseY - trunkHeight * 0.6 - 5],
+            [treeBaseX - 8, treeBaseY - trunkHeight * 0.8 - 8],
+            [treeBaseX + 10, treeBaseY - trunkHeight * 0.9 - 12],
+            [treeBaseX - 25, treeBaseY - trunkHeight * 0.3 - 6],
+          ];
+          flowerPositions.forEach(([fx, fy]) => {
+            const size = (8 + Math.random() * 6) * flowerScale * 0.8;
+            if (size < 2) return;
+            // Cánh hoa
+            for (let p = 0; p < 5; p++) {
+              const a = p * 1.256 + 0.2;
+              ctx.beginPath();
+              ctx.ellipse(
+                fx + Math.cos(a) * size * 0.7,
+                fy + Math.sin(a) * size * 0.7,
+                size * 0.6, size * 0.3, a, 0, 2 * Math.PI
+              );
+              ctx.fillStyle = p % 2 === 0 ? '#f27e8a' : '#f5a3ae';
+              ctx.fill();
+            }
+            // Nhụy hoa
+            ctx.beginPath();
+            ctx.arc(fx, fy, size * 0.25, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f7d44a';
+            ctx.fill();
+          });
+        }
+
+        // Rễ nhỏ (trang trí)
+        ctx.strokeStyle = '#6a4e3a';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(treeBaseX - 6 + i * 6, groundY);
+          ctx.lineTo(treeBaseX - 12 + i * 12, groundY + 8 + i * 4);
+          ctx.stroke();
+        }
+      }
+
+      // Mặt trời nhỏ
+      ctx.beginPath();
+      ctx.arc(540, 50, 28, 0, 2 * Math.PI);
+      ctx.fillStyle = '#fadb7a';
+      ctx.shadowColor = '#f0c060';
+      ctx.shadowBlur = 40;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Đám mây
+      ctx.fillStyle = '#ffffffb0';
+      ctx.beginPath();
+      ctx.arc(480, 70, 30, 0, 2 * Math.PI);
+      ctx.arc(510, 55, 26, 0, 2 * Math.PI);
+      ctx.arc(530, 70, 24, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Một vài bông hoa nhỏ trên cỏ
+      for (let i = 0; i < 12; i++) {
+        const fx = 40 + i * 30 + Math.sin(i) * 10;
+        const fy = groundY + 2 + Math.sin(i * 0.5) * 2;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = i % 2 === 0 ? '#f2a6b0' : '#f7c4b0';
+        ctx.fill();
+      }
+    }
+
+    // ---------- Animation loop ----------
+    let lastTime = 0;
+    let typingIndex = 0;
+    let typingTimer = 0;
+    let typingActive = false; // sẽ kích hoạt sau khi cây mọc xong
+
+    function animate(timestamp) {
+      const delta = lastTime ? (timestamp - lastTime) / 16 : 0; // ~60fps
+      lastTime = timestamp;
+
+      // 1. Cập nhật trạng thái cây
+      if (phase === 'dropping') {
+        seedY += 2.5 * delta;
+        if (seedY >= groundY - 10) {
+          seedY = groundY - 10;
+          phase = 'growing';
+          growProgress = 0;
+        }
+      } else if (phase === 'growing') {
+        growProgress += 0.006 * delta;
+        if (growProgress >= 1) {
+          growProgress = 1;
+          phase = 'done';
+          // Bắt đầu gõ chữ sau khi cây đã mọc hoàn chỉnh
+          if (!typingActive) {
+            typingActive = true;
+            textDisplay.textContent = '';
+            typingIndex = 0;
+            typingTimer = 0;
+          }
+        }
+      }
+
+      // 2. Vẽ lại cảnh
+      drawScene();
+
+      // 3. Cập nhật đếm ngược (mỗi 1s)
+      if (!countdownEl._lastUpdate || Date.now() - countdownEl._lastUpdate > 1000) {
+        updateCountdown();
+        countdownEl._lastUpdate = Date.now();
+      }
+
+      // 4. Typing effect (chỉ khi cây đã mọc xong)
+      if (typingActive && typingIndex < fullMessage.length) {
+        typingTimer += delta;
+        if (typingTimer >= 0.08) { // tốc độ gõ
+          typingTimer = 0;
+          textDisplay.textContent += fullMessage.charAt(typingIndex);
+          typingIndex++;
+          // cuộn xuống cuối nếu cần
+          const msgBox = document.getElementById('typingMessage');
+          if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+        }
+      } else if (typingActive && typingIndex >= fullMessage.length) {
+        // Ẩn con trỏ sau khi gõ xong
+        cursorBlink.style.display = 'none';
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // Khởi chạy
+    updateCountdown();
+    // Đặt hạt giống ở vị trí đầu
+    seedY = 50;
+    phase = 'dropping';
+    growProgress = 0;
+    typingActive = false;
+    textDisplay.textContent = '';
+
+    requestAnimationFrame(animate);
+
+    // Khi resize, không cần xử lý đặc biệt vì canvas dùng CSS aspect-ratio
+  })();
+</script>
+
+</body>
+  </html>
