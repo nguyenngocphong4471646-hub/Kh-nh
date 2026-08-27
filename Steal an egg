@@ -1,0 +1,272 @@
+-- Kiểm tra xem game đã tải xong chưa
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- Tạo GUI Menu chính
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+local Title = Instance.new("TextLabel")
+local ToggleBtn = Instance.new("TextButton")
+local UIListLayout = Instance.new("UIListLayout")
+
+-- Cấu hình ScreenGui
+ScreenGui.Name = "NBK_Menu"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Cấu hình Frame chính
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 220, 0, 270)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+UICorner.Parent = MainFrame
+
+-- Tiêu đề Menu
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Size = UDim2.new(0, 220, 0, 40)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "  NBK MENU"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.Parent = Title
+
+-- Nút Thu Gọn / Mở Rộng
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Parent = Title
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ToggleBtn.Position = UDim2.new(1, -35, 0.15, 0)
+ToggleBtn.Size = UDim2.new(0, 28, 0, 28)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "-"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 14
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.Parent = ToggleBtn
+
+UIListLayout.Parent = MainFrame
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+
+-- Hàm tạo Nút bấm chức năng
+function CreateButton(name, text)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Parent = MainFrame
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.Size = UDim2.new(0, 200, 0, 35)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    
+    local corner = Instance.new("UICorner")
+    corner.Parent = btn
+    return btn
+end
+
+-- Biến chức năng
+local player = game:GetService("Players").LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+    humanoid = newChar:WaitForChild("Humanoid")
+end)
+
+-- Tạo các nút chức năng
+local FlyToMarkBtn = CreateButton("FlyToMarkBtn", "Fly Về Điểm (Speed 210)")
+local FlyBtn = CreateButton("FlyBtn", "Bay Tự Do (Speed: 210): OFF")
+local MarkBtn = CreateButton("MarkBtn", "Đánh Dấu Vị Trí Hiện Tại")
+local GodBtn = CreateButton("GodBtn", "God Mode: OFF")
+
+-- Xử lý ẩn/hiện menu
+local menuVisible = true
+ToggleBtn.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    for _, child in ipairs(MainFrame:GetChildren()) do
+        if child:IsA("TextButton") and child ~= ToggleBtn then
+            child.Visible = menuVisible
+        end
+    end
+    if menuVisible then
+        MainFrame.Size = UDim2.new(0, 220, 0, 270)
+        ToggleBtn.Text = "-"
+    else
+        MainFrame.Size = UDim2.new(0, 220, 0, 45)
+        ToggleBtn.Text = "+"
+    end
+end)
+
+-- Hàm thông minh: Chỉ xóa trọng lượng của riêng quả trứng/vật phẩm đang cầm, KHÔNG làm ảnh hưởng đến chân nhân vật
+local function RemoveEggWeightOnly()
+    pcall(function()
+        if character then
+            for _, item in ipairs(character:GetDescendants()) do
+                -- Chỉ nhắm vào các phần không phải là bộ phận cơ thể chính của nhân vật (như tool, vật phẩm cầm trên tay)
+                if item:IsA("BasePart") and item.Name ~= "HumanoidRootPart" and item.Name ~= "Head" and item.Name ~= "Torso" and item.Name ~= "UpperTorso" and item.Name ~= "LowerTorso" then
+                    item.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    item.CustomPhysicalProperties = PhysicalProperties.new(0, 0, 0, 0, 0)
+                end
+            end
+        end
+    end)
+end
+
+-- 1. Tính năng Fly Về Điểm (Speed 210)
+local savedPosition = nil
+local isFlyingToMark = false
+
+FlyToMarkBtn.MouseButton1Click:Connect(function()
+    if isFlyingToMark then
+        isFlyingToMark = false
+        FlyToMarkBtn.Text = "Fly Về Điểm (Speed 210)"
+        FlyToMarkBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        return
+    end
+
+    if not savedPosition then
+        FlyToMarkBtn.Text = "Chưa Có Điểm Lưu!"
+        task.wait(1.5)
+        FlyToMarkBtn.Text = "Fly Về Điểm (Speed 210)"
+        return
+    end
+    
+    isFlyingToMark = true
+    FlyToMarkBtn.Text = "Đang Bay Về (Bấm để Tắt)..."
+    FlyToMarkBtn.BackgroundColor3 = Color3.fromRGB(170, 110, 0)
+
+    task.spawn(function()
+        pcall(function()
+            local targetPos = savedPosition.Position
+            while (rootPart.Position - targetPos).Magnitude > 5 and isFlyingToMark do
+                RemoveEggWeightOnly()
+                
+                local direction = (targetPos - rootPart.Position).Unit
+                rootPart.CFrame = rootPart.CFrame + (direction * math.min(210 * task.wait(), (targetPos - rootPart.Position).Magnitude))
+            end
+            
+            -- Khi bay đến nơi hoặc khi tắt ngang chừng: Trả lại trạng thái vật lý bình thường cho nhân vật
+            if rootPart then
+                rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end
+            if savedPosition and not isFlyingToMark == false then
+                -- Nếu đến đích hoàn toàn thì dịch chuyển chuẩn xác vào vị trí cũ
+                rootPart.CFrame = savedPosition 
+            end
+        end)
+        
+        isFlyingToMark = false
+        FlyToMarkBtn.Text = "Fly Về Điểm (Speed 210)"
+        FlyToMarkBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end)
+end)
+
+-- 2. Tính năng Bay Tự Do (Speed 210)
+local flying = false
+local bv, bg
+
+FlyBtn.MouseButton1Click:Connect(function()
+    flying = not flying
+    if flying then
+        FlyBtn.Text = "Bay Tự Do: ON"
+        FlyBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.Parent = rootPart
+        
+        bg = Instance.new("BodyGyro")
+        bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bg.CFrame = rootPart.CFrame
+        bg.Parent = rootPart
+        
+        task.spawn(function()
+            local cam = workspace.CurrentCamera
+            while flying do
+                RemoveEggWeightOnly()
+                local moveDir = Vector3.new()
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                    moveDir = moveDir + cam.CFrame.LookVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                    moveDir = moveDir - cam.CFrame.LookVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                    moveDir = moveDir - cam.CFrame.RightVector
+                end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                    moveDir = moveDir + cam.CFrame.RightVector
+                end
+                
+                bv.Velocity = moveDir * 210
+                bg.CFrame = cam.CFrame
+                task.wait()
+            end
+        end)
+    else
+        FlyBtn.Text = "Bay Tự Do (Speed: 210): OFF"
+        FlyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        if bv then bv:Destroy() end
+        if bg then bg:Destroy() end
+        if rootPart then rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0) end
+    end
+end)
+
+-- 3. Đánh dấu nhà / Điểm đến
+MarkBtn.MouseButton1Click:Connect(function()
+    if rootPart then
+        savedPosition = rootPart.CFrame
+        MarkBtn.Text = "Đã Lưu Vị Trí!"
+        task.wait(1.5)
+        MarkBtn.Text = "Đánh Dấu Vị Trí Hiện Tại"
+    end
+end)
+
+-- 4. God Mode
+local godModeActive = false
+
+GodBtn.MouseButton1Click:Connect(function()
+    godModeActive = not godModeActive
+    if godModeActive then
+        GodBtn.Text = "God Mode: ON"
+        GodBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        
+        task.spawn(function()
+            while godModeActive do
+                pcall(function()
+                    if humanoid then
+                        humanoid.MaxHealth = math.huge
+                        humanoid.Health = math.huge
+                    end
+                end)
+                task.wait(0.5)
+            end
+        end)
+    else
+        GodBtn.Text = "God Mode: OFF"
+        GodBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        if humanoid then
+            humanoid.MaxHealth = 100
+            humanoid.Health = 100
+        end
+    end
+end)
+
+print("NBK Menu Fixed & Loaded Successfully!")
