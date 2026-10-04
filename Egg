@@ -1,0 +1,414 @@
+--// Dịch vụ và Biến cơ bản
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+
+--// Trạng thái tính năng
+local Config = {
+    GodMode = false,
+    ESPPlayer = false,
+    ESPEggSecret = false,
+    ESPEggNormal = false,
+    AutoVolcano = false, -- Trạng thái Auto Núi Lửa
+}
+
+--// Biến lưu vị trí nhà
+local savedHomeCFrame = nil
+
+--// Bảng lưu trữ đối tượng ESP để dọn dẹp khi tắt
+local activeESPs = {}
+
+local function removeESP(object, tag)
+    if object and object:FindFirstChild(tag) then
+        object[tag]:Destroy()
+    end
+end
+
+local function clearAllESP(tag)
+    for obj, _ in pairs(activeESPs) do
+        if obj then
+            removeESP(obj, tag)
+        end
+    end
+end
+
+--// Tạo giao diện Menu (UI) - Mở rộng chiều cao để chứa thêm nút và giao diện Auto 2,5T
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EggESPMENU"
+screenGui.ResetOnSpawn = false
+pcall(function()
+    screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Nút mở/đóng menu (Toggle Button)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleMenuBtn"
+toggleBtn.Size = UDim2.new(0, 120, 0, 40)
+toggleBtn.Position = UDim2.new(0, 20, 0, 20)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.Text = "MENU ESP"
+toggleBtn.Parent = screenGui
+
+local cornerBtn = Instance.new("UICorner")
+cornerBtn.CornerRadius = UDim.new(0, 8)
+cornerBtn.Parent = toggleBtn
+
+-- Khung chứa menu chính
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 240, 0, 520)
+mainFrame.Position = UDim2.new(0, 20, 0, 70)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+local cornerFrame = Instance.new("UICorner")
+cornerFrame.CornerRadius = UDim.new(0, 10)
+cornerFrame.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "MENU HỆ THỐNG NÂNG CAO"
+titleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+titleLabel.TextSize = 12
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Parent = mainFrame
+
+-- Hàm tạo các nút chức năng bật/tắt cơ bản
+local function createMenuButton(name, posY, stateKey, onDisableCallback)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0, 200, 0, 28)
+    btn.Position = UDim2.new(0, 20, 0, posY)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 11
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Text = name .. ": TẮT"
+    btn.Parent = mainFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        Config[stateKey] = not Config[stateKey]
+        if Config[stateKey] then
+            btn.Text = name .. ": BẬT"
+            btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        else
+            btn.Text = name .. ": TẮT"
+            btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            if onDisableCallback then
+                onDisableCallback()
+            end
+        end
+    end)
+end
+
+createMenuButton("Bất Tử (GodMode)", 35, "GodMode", nil)
+createMenuButton("ESP Người Chơi", 68, "ESPPlayer", function()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChild("Head") then
+            removeESP(player.Character.Head, "PlayerESP")
+        end
+    end
+end)
+createMenuButton("ESP Trứng Secret", 101, "ESPEggSecret", function()
+    clearAllESP("SecretEggESP")
+end)
+createMenuButton("ESP Trứng Thường", 134, "ESPEggNormal", function()
+    clearAllESP("NormalEggESP")
+end)
+
+--// Ô nhập tên để Teleport Trứng Xa Nhất
+local textBox = Instance.new("TextBox")
+textBox.Name = "TeleBox"
+textBox.Size = UDim2.new(0, 200, 0, 28)
+textBox.Position = UDim2.new(0, 20, 0, 170)
+textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.PlaceholderText = "Tên trứng cần tele xa nhất..."
+textBox.Text = ""
+textBox.TextSize = 11
+textBox.Font = Enum.Font.SourceSans
+textBox.Parent = mainFrame
+Instance.new("UICorner", textBox).CornerRadius = UDim.new(0, 6)
+
+local teleBtn = Instance.new("TextButton")
+teleBtn.Name = "TeleButton"
+teleBtn.Size = UDim2.new(0, 200, 0, 28)
+teleBtn.Position = UDim2.new(0, 20, 0, 203)
+teleBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+teleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleBtn.TextSize = 11
+teleBtn.Font = Enum.Font.SourceSansBold
+teleBtn.Text = "TELE TRỨNG XA NHẤT"
+teleBtn.Parent = mainFrame
+Instance.new("UICorner", teleBtn).CornerRadius = UDim.new(0, 6)
+
+--// Chức năng Đánh dấu Nhà & Tele về nhà
+local setHomeBtn = Instance.new("TextButton")
+setHomeBtn.Size = UDim2.new(0, 95, 0, 28)
+setHomeBtn.Position = UDim2.new(0, 20, 0, 238)
+setHomeBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 120)
+setHomeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+setHomeBtn.TextSize = 11
+setHomeBtn.Font = Enum.Font.SourceSansBold
+setHomeBtn.Text = "ĐÁNH DẤU NHÀ"
+setHomeBtn.Parent = mainFrame
+Instance.new("UICorner", setHomeBtn).CornerRadius = UDim.new(0, 6)
+
+local teleHomeBtn = Instance.new("TextButton")
+teleHomeBtn.Size = UDim2.new(0, 95, 0, 28)
+teleHomeBtn.Position = UDim2.new(0, 125, 0, 238)
+teleHomeBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 120)
+teleHomeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleHomeBtn.TextSize = 11
+teleHomeBtn.Font = Enum.Font.SourceSansBold
+teleHomeBtn.Text = "TELE VỀ NHÀ"
+teleHomeBtn.Parent = mainFrame
+Instance.new("UICorner", teleHomeBtn).CornerRadius = UDim.new(0, 6)
+
+setHomeBtn.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        savedHomeCFrame = hrp.CFrame
+        print("Đã lưu vị trí nhà thành công!")
+    end
+end)
+
+teleHomeBtn.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp and savedHomeCFrame then
+        hrp.CFrame = savedHomeCFrame
+        print("Đã tele về nhà thành công!")
+    else
+        warn("Chưa đánh dấu vị trí nhà!")
+    end
+end)
+
+--// Khung Tiêu Đề Riêng Cho Auto 2,5T
+local volcanoLabel = Instance.new("TextLabel")
+volcanoLabel.Size = UDim2.new(1, 0, 0, 25)
+volcanoLabel.Position = UDim2.new(0, 0, 0, 272)
+volcanoLabel.BackgroundTransparency = 1
+volcanoLabel.Text = "--- KHU VỰC AUTO 2,5T ---"
+volcanoLabel.TextColor3 = Color3.fromRGB(255, 120, 0)
+volcanoLabel.TextSize = 11
+volcanoLabel.Font = Enum.Font.SourceSansBold
+volcanoLabel.Parent = mainFrame
+
+-- Nút Bật/Tắt Auto 2,5T Núi Lửa
+local autoVolcanoBtn = Instance.new("TextButton")
+autoVolcanoBtn.Size = UDim2.new(0, 200, 0, 32)
+autoVolcanoBtn.Position = UDim2.new(0, 20, 0, 300)
+autoVolcanoBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 0)
+autoVolcanoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoVolcanoBtn.TextSize = 11
+autoVolcanoBtn.Font = Enum.Font.SourceSansBold
+autoVolcanoBtn.Text = "AUTO 2,5T (NÚI LỬA): TẮT"
+autoVolcanoBtn.Parent = mainFrame
+Instance.new("UICorner", autoVolcanoBtn).CornerRadius = UDim.new(0, 6)
+
+autoVolcanoBtn.MouseButton1Click:Connect(function()
+    Config.AutoVolcano = not Config.AutoVolcano
+    if Config.AutoVolcano then
+        autoVolcanoBtn.Text = "AUTO 2,5T (NÚI LỬA): BẬT"
+        autoVolcanoBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    else
+        autoVolcanoBtn.Text = "AUTO 2,5T (NÚI LỬA): TẮT"
+        autoVolcanoBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 0)
+    end
+end)
+
+--// Logic Auto Bay vào / Bay ra Cửa Hang Núi Lửa (Auto 2,5T)
+task.spawn(function()
+    while true do
+        if Config.AutoVolcano then
+            pcall(function()
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local insideCave, outsideCave = nil, nil
+                    for _, obj in ipairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") or obj:IsA("Model") then
+                            local success, nameLower = pcall(function() return string.lower(obj.Name) end)
+                            if success and nameLower then
+                                if string.find(nameLower, "volcano") or string.find(nameLower, "nuilua") or string.find(nameLower, "cave") or string.find(nameLower, "cuahang") then
+                                    local p = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj
+                                    if p then
+                                        if string.find(nameLower, "in") or string.find(nameLower, "inside") then
+                                            insideCave = p
+                                        elseif string.find(nameLower, "out") or string.find(nameLower, "outside") or string.find(nameLower, "door") then
+                                            outsideCave = p
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    if insideCave and outsideCave then
+                        hrp.CFrame = insideCave.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(1.5)
+                        hrp.CFrame = outsideCave.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(1.5)
+                    else
+                        for _, obj in ipairs(Workspace:GetDescendants()) do
+                            if obj.Name:lower():find("volcano") and obj:IsA("BasePart") then
+                                hrp.CFrame = obj.CFrame + Vector3.new(0, 5, 0)
+                                task.wait(2)
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(0.5)
+    end
+end)
+
+--// Logic Teleport đến quả trứng XA NHẤT khớp tên
+teleBtn.MouseButton1Click:Connect(function()
+    local searchName = string.lower(textBox.Text)
+    if searchName == "" then 
+        warn("Vui lòng nhập tên trứng vào ô!")
+        return 
+    end
+    
+    local foundTarget = nil
+    local longestDistance = -1
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    
+    if not hrp then return end
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local success, nameLower = pcall(function() return string.lower(obj.Name) end)
+            if success and nameLower and string.find(nameLower, searchName) then
+                local targetPart = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or obj
+                if targetPart then
+                    local dist = (targetPart.Position - hrp.Position).Magnitude
+                    if dist > longestDistance then
+                        longestDistance = dist
+                        foundTarget = targetPart
+                    end
+                end
+            end
+        end
+    end
+    
+    if foundTarget then
+        hrp.CFrame = foundTarget.CFrame + Vector3.new(0, 3, 0)
+        print("Đã tele đến trứng xa nhất: " .. tostring(foundTarget.Parent.Name) .. " | Khoảng cách: " .. math.floor(longestDistance) .. "m")
+    else
+        warn("Không tìm thấy trứng khớp tên!")
+    end
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+end)
+
+--// 1. Chức năng Bất tử
+task.spawn(function()
+    RunService.Stepped:Connect(function()
+        if Config.GodMode and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.MaxHealth = math.huge
+            LocalPlayer.Character.Humanoid.Health = math.huge
+        end
+    end)
+end)
+
+--// Hàm tạo nhãn ESP chung an toàn
+local function createCustomESP(object, color, customText, tagName)
+    if not object:FindFirstChild(tagName) then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = tagName
+        billboard.Size = UDim2.new(0, 160, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = object
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = customText
+        textLabel.TextColor3 = color
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.Parent = billboard
+    else
+        local billboard = object:FindFirstChild(tagName)
+        if billboard and billboard:FindFirstChild("TextLabel") then
+            billboard.TextLabel.Text = customText
+        end
+    end
+end
+
+--// 2. Chức năng ESP Player
+RunService.RenderStepped:Connect(function()
+    if Config.ESPPlayer then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+                createCustomESP(player.Character.Head, Color3.fromRGB(0, 255, 0), "[Player] " .. player.Name, "PlayerESP")
+            end
+        end
+    end
+end)
+
+--// 3. Chức năng ESP Trứng
+local function setupEggESP()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local success, nameLower = pcall(function() return string.lower(obj.Name) end)
+            if success and nameLower then
+                local isEgg = string.find(nameLower, "egg") or string.find(nameLower, "trứng")
+                if isEgg then
+                    local isSecret = string.find(nameLower, "secret")
+                    if isSecret then
+                        if Config.ESPEggSecret then
+                            activeESPs[obj] = true
+                            createCustomESP(obj, Color3.fromRGB(255, 0, 0), "🔒 [SECRET] " .. obj.Name, "SecretEggESP")
+                        else
+                            removeESP(obj, "SecretEggESP")
+                        end
+                        removeESP(obj, "NormalEggESP")
+                    else
+                        if Config.ESPEggNormal then
+                            activeESPs[obj] = true
+                            createCustomESP(obj, Color3.fromRGB(255, 255, 255), "🥚 [Thường] " .. obj.Name, "NormalEggESP")
+                        else
+                            removeESP(obj, "NormalEggESP")
+                        end
+                        removeESP(obj, "SecretEggESP")
+                    end
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        pcall(setupEggESP)
+        task.wait(1.5)
+    end
+end)
+
+print("Đã thêm nút Auto 2,5T Núi Lửa hoàn chỉnh vào Menu!")
